@@ -12,7 +12,7 @@ CONF.import_group('fairness', 'nova.fairness')
 class RUIStats(object):
 
     def __init__(self):
-        self._csv_path = '/var/log/nova/nova-fairness-rui-stats.csv'
+        self._csv_path = '/var/log/nova/fairness/rui-stats.csv'
         with open(self._csv_path, 'w') as csv_file:
             csv_writer = csv.writer(csv_file)
             csv_writer.writerow(('TIMESTAMP', 'INSTANCE', 'HEAVINESS',
