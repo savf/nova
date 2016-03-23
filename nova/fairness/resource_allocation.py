@@ -29,13 +29,14 @@ LOG = logging.getLogger(__name__)
 class ResourceAllocation(object):
 
     def __init__(self, fairness_heavinesses, rui_statistics,
-                 fairness_quota, global_norm):
+                 timing_statistics, fairness_quota, global_norm):
         self._fairness_heavinesses = fairness_heavinesses
         self._local_heavinesses = None
         self._user_count = None
         self.host = CONF.host
         self.bridge_interface = self._find_bridge_interface()
         self._rui_stats = rui_statistics
+        self._timing_stats = timing_statistics
         self._fairness_quota = fairness_quota
         self._global_norm = global_norm
         self.driver = driver.load_compute_driver(virtapi.VirtAPI,
@@ -210,10 +211,13 @@ class ResourceAllocation(object):
 
     def reallocate(self):
         """ Apply priorities for all stored instance heavinesses """
+        self._timing_stats.start_timing("reallocation_setup")
         self._calculate_local_heavinesses()
+        self._timing_stats.stop_timing("reallocation_setup")
         if self._local_heavinesses is not None:
             for instance_name,\
                     instance_info in self._local_heavinesses.iteritems():
+                self._timing_stats.start_timing("cmd_reallocation", instance_name)
                 priority = self._heaviness_to_priority(instance_name,
                                                   instance_info['heaviness'])
                 LOG.debug(str(instance_name) +
@@ -222,7 +226,10 @@ class ResourceAllocation(object):
                 self._set_cpu_priority(instance_name, priority)
                 self._set_memory_priority(instance_name, priority)
                 self._set_disk_priority(instance_name, priority)
+                self._timing_stats.stop_timing("cmd_reallocation", instance_name)
+                self._timing_stats.start_timing("n_reallocation", instance_name)
                 self._set_net_priority(instance_name, priority)
+                self._timing_stats.stop_timing("n_reallocation", instance_name)
 
                 self._write_stats(instance_name, instance_info['heaviness'])
 

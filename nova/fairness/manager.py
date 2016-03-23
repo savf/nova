@@ -32,6 +32,7 @@ from nova.fairness import cloud_supply
 from nova.fairness import metrics
 from nova.fairness import resource_allocation
 from nova.fairness import rui_stats
+from nova.fairness import timing_stats
 from nova.objects import instance as instance_objects
 from nova.openstack.common import importutils
 from nova.openstack.common import log as logging
@@ -68,7 +69,14 @@ fairness_manager_opts = [
                 help='Set rui_stats_enabled to True in order to produce a'
                      'csv file containing resource reallocation as well'
                      'as resource utilization information about all'
-                     'instances running on the host.')
+                     'instances running on the host.'),
+    cfg.BoolOpt('timing_stats_enabled',
+                default=False,
+                help='Set timing_stats_enabled to True in order to produce a'
+                     'csv file containing timing information about the runtime'
+                     'of the extension broken down into time for RUI collection,'
+                     'heaviness calculation & distribution, CPU, Memory and Disk'
+                     'reallocation as well as network bandwidth reallocation.')
     ]
 
 CONF = cfg.CONF
@@ -256,12 +264,14 @@ class FairnessManager(manager.Manager):
         self._global_norm =\
             metrics.BaseMetric.ResourceInformation(0, 0, 0, 0, 0, 0)
         self._rui_stats = rui_stats.RUIStats()
+        self._timing_stats = timing_stats.TimingStats()
         self._rui_collection_helper = self.RUICollectionHelper(self._rui_stats)
         self._cloud_supply = cloud_supply.CloudSupply()
         self._resource_allocation = \
             resource_allocation.ResourceAllocation(
                 self._fairness_heavinesses,
                 self._rui_stats,
+                self._timing_stats,
                 self._fairness_quota,
                 self._global_norm)
 
@@ -350,6 +360,7 @@ class FairnessManager(manager.Manager):
         :type ctxt: nova.context.RequestContext
         """
         if self._cloud_supply.ready:
+            self._timing_stats.start_timing("rui_setup")
             self._rui_collection_helper.start()
             instances = instance_objects.InstanceList().get_by_host(ctxt,
                                                                     self.host)
@@ -378,9 +389,10 @@ class FairnessManager(manager.Manager):
                 total_vcpus += instance.vcpus
                 if instance.vm_state == "active":
                     active_instances += 1
-
+            self._timing_stats.stop_timing("rui_setup")
             if active_instances > 0:
                 for instance in instances:
+                    self._timing_stats.start_timing("rui", instance['name'])
                     domain = self.driver._lookup_by_name(instance['name'])
                     if not domain.isActive():
                         self._rui_collection_helper.remove_inactive_instance(
@@ -460,7 +472,7 @@ class FairnessManager(manager.Manager):
                         endowment_resource.instance_name = instance['name']
                         endowment_resource.cpu_time = flavor_cpu_time
                         endowment_resource.memory_used = flavor_memory_total
-
+                        self._timing_stats.stop_timing("rui", instance['name'])
                         self._rui_collection_helper.add_instance_endowment(
                             endowment_resource)
 
@@ -473,6 +485,7 @@ class FairnessManager(manager.Manager):
                 # Add the overcommitment to the cloud supply to consider
                 # it for the global norm
                 _cloud_supply *= self._cloud_supply.get_overcommitment()
+                self._timing_stats.start_timing("heaviness")
                 self._map_rui(
                         _cloud_supply,
                         _instance_endowments,
@@ -591,6 +604,7 @@ class FairnessManager(manager.Manager):
                   " on host " + ctxt.remote_address)
         self._add_heavinesses(heavinesses)
         if self._all_heavinesses_collected():
+            self._timing_stats.stop_timing("heaviness")
             self._resource_allocation.reallocate()
 
     def _send_host_supply(self, host):
