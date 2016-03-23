@@ -43,7 +43,7 @@ def main():
     if len(params) <= 1:
         print "Usage: python runtime_test.py LOAD_BOOLEAN"
         exit(1)
-    load = params[1]
+    load = bool(params[1])
     conn = libvirt.open()
     domains = conn.listAllDomains()
     instances = dict()
