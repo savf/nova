@@ -121,6 +121,9 @@ def main():
     intervals = [-1, 1, 2, 4, 8, 16]
     active_instances = 0
 
+    # wait for all vms to shut down
+    time.sleep(30)
+
     for domain in domains:
         # start domain
         domain.create()
