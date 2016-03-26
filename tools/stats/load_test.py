@@ -128,7 +128,7 @@ def main():
         # start domain
         domain.create()
         active_instances += 1
-        instances[domain.name]['running'] = True
+        instances[domain.name()]['running'] = True
         time.sleep(30)
         print "START EXPERIMENT WITH " + str(active_instances) + " VMs"
         for interval in intervals:
