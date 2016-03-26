@@ -390,15 +390,15 @@ class FairnessManager(manager.Manager):
                 domain = self.driver._lookup_by_name(instance['name'])
                 if domain.isActive():
                     active_instances += 1
-                else:
-                    self._rui_collection_helper.remove_inactive_instance(
-                        instance['name'])
             self._timing_stats.stop_timing("rui_setup")
             if active_instances > 0:
                 for instance in instances:
                     self._timing_stats.start_timing("rui", instance['name'])
                     domain = self.driver._lookup_by_name(instance['name'])
-                    try:
+                    if not domain.isActive:
+                        self._rui_collection_helper.remove_inactive_instance(
+                            instance['name'])
+                    else:
                         # Get CPU times
                         total_cpu_time = 0
                         try:
@@ -476,8 +476,6 @@ class FairnessManager(manager.Manager):
                         self._timing_stats.stop_timing("rui", instance['name'])
                         self._rui_collection_helper.add_instance_endowment(
                             endowment_resource)
-                    except libvirt.libvirtError:
-                        pass
 
             _instance_endowments =\
                 self._rui_collection_helper.get_instance_endowments(instances)
