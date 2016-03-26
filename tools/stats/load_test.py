@@ -136,7 +136,7 @@ def main():
                 csv_writer.writerow(row)
         # give vm enough time to boot
         time.sleep(30)
-        
+
         print "START EXPERIMENT WITH " + str(active_instances) + " VMs"
         for interval in intervals:
             sed_output = call(
@@ -182,7 +182,9 @@ def main():
                 for service_name, service in services.iteritems():
                     service['cpu_stop_time'] = _get_cpu_time(service['pid'])
                 for instance_name, instance in instances.iteritems():
-                    instance['cpu_stop_time'] = _get_cpu_time(instance['pid'])
+                    if instance['running']:
+                        instance['cpu_stop_time'] = _get_cpu_time(
+                            instance['pid'])
                 _write_results(interval, load,
                                instances, active_instances,
                                services)
