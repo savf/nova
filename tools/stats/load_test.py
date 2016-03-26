@@ -41,15 +41,16 @@ def _find_domain_ip(domain):
         return False
 
 
-def _write_results(interval, load, instances, services):
-    filename = str(len(instances)) + "VM"
+def _write_results(interval, load, instances, active_instances, services):
+    filename = "cpu_load_" + str(active_instances) + "VM.csv"
     with open(csv_path + filename, 'a') as csv_file:
         csv_writer = csv.writer(csv_file)
         row = [str(experiment_duration), str(interval), str(load)]
         for instance_name, instance in instances.iteritems():
-            cpu_time = (int(instance['cpu_stop_time']) -
-                        int(instance['cpu_start_time']))
-            row.append(str(cpu_time))
+            if instance['running']:
+                cpu_time = (int(instance['cpu_stop_time']) -
+                            int(instance['cpu_start_time']))
+                row.append(str(cpu_time))
         if 'nova-compute' in services:
             row.append(str(services['nova-compute']['cpu_stop_time'] -
                            services['nova-compute']['cpu_start_time']))
@@ -86,16 +87,6 @@ def main():
         if domain.isActive():
             domain.shutdown()
 
-    if not os.path.isfile(csv_path + str(len(instances)) + "VM"):
-        with open(csv_path + str(len(instances)) + "VM", 'w') as csv_file:
-            csv_writer = csv.writer(csv_file)
-            row = ['EXPERIMENT_DURATION', 'INTERVAL_LENGTH', 'LOAD']
-            for instance_name, instance in instances.iteritems():
-                row.append(instance_name)
-            row += ['NOVA_COMPUTE', 'NOVA_NETWORK', 'NOVA_API_METADATA',
-                    'NOVA_FAIRNESS']
-            csv_writer.writerow(row)
-
     # Get PIDs of nova services
     services = dict()
     ps = check_output(['ps', '-aux'])
@@ -129,7 +120,23 @@ def main():
                             '.pid'])
         instances[domain.name()]['pid'] = pid
         instances[domain.name()]['running'] = True
+
+        # set up CSV file
+        filename = "cpu_load_" + str(active_instances) + "VM.csv"
+        if not os.path.isfile(csv_path + filename):
+            with open(csv_path + filename, 'w') \
+                    as csv_file:
+                csv_writer = csv.writer(csv_file)
+                row = ['EXPERIMENT_DURATION', 'INTERVAL_LENGTH', 'LOAD']
+                for instance_name, instance in instances.iteritems():
+                    if instance['running']:
+                        row.append(instance_name)
+                row += ['NOVA_COMPUTE', 'NOVA_NETWORK', 'NOVA_API_METADATA',
+                        'NOVA_FAIRNESS']
+                csv_writer.writerow(row)
+        # give vm enough time to boot
         time.sleep(30)
+        
         print "START EXPERIMENT WITH " + str(active_instances) + " VMs"
         for interval in intervals:
             sed_output = call(
@@ -155,7 +162,9 @@ def main():
                 for service_name, service in services.iteritems():
                     service['cpu_start_time'] = _get_cpu_time(service['pid'])
                 for instance_name, instance in instances.iteritems():
-                    instance['cpu_start_time'] = _get_cpu_time(instance['pid'])
+                    if instance['running']:
+                        instance['cpu_start_time'] = _get_cpu_time(
+                            instance['pid'])
                 if load:
                     for instance_name, instance in instances.iteritems():
                         if instance['running']:
@@ -174,7 +183,9 @@ def main():
                     service['cpu_stop_time'] = _get_cpu_time(service['pid'])
                 for instance_name, instance in instances.iteritems():
                     instance['cpu_stop_time'] = _get_cpu_time(instance['pid'])
-                _write_results(interval, load, instances, services)
+                _write_results(interval, load,
+                               instances, active_instances,
+                               services)
             service_stop_output = call(["service", "nova-fairness", "stop"],
                                        stderr=PIPE, stdout=PIPE)
 
