@@ -17,7 +17,8 @@ class TimingStats(object):
         self._timestamps['reallocation_setup'] = dict()
         self._timestamps['cmd_reallocation'] = dict()
         self._timestamps['n_reallocation'] = dict()
-        self._csv_path = '/var/log/nova/fairness/timing-stats.csv'
+        self._csv_path = '/var/log/nova/fairness/timing-stats-' +\
+                         str(int(time.time())) + '.csv'
         with open(self._csv_path, 'w') as csv_file:
             csv_writer = csv.writer(csv_file)
             csv_writer.writerow(('ITERATION_STEP', 'INSTANCE_NAME', 'TIME'))

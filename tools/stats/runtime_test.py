@@ -49,34 +49,56 @@ def main():
     instances = dict()
 
     for domain in domains:
+        instances[domain.name()] = dict()
+        instances[domain.name()]['name'] = domain.name()
+        ip = _find_domain_ip(domain)
+        instances[domain.name()]['ip'] = ip
+        instances[domain.name()]['running'] = False
         if domain.isActive():
-            instances[domain.name()] = dict()
-            instances[domain.name()]['name'] = domain.name()
-            ip = _find_domain_ip(domain)
-            instances[domain.name()]['ip'] = ip
+            domain.shutdown()
 
     intervals = [10]
+    active_instances = 0
 
-    for interval in intervals:
+    for domain in domains:
+        # start domain
+        domain.create()
+        active_instances += 1
+        instances[domain.name]['running'] = True
+        time.sleep(30)
+        print "START EXPERIMENT WITH " + str(active_instances) + " VMs"
+        for interval in intervals:
+            sed_interval_output = call(
+                ["sed", "-i",
+                 "s/rui_collection_interval=.*/rui_collection_interval=" +
+                 str(interval) + "/g", "/etc/nova/nova.conf"],
+                stderr=PIPE, stdout=PIPE)
+            sed_timingstats_output = call(
+                ["sed", "-i",
+                 "s/timing_stats_enabled=.*/timing_stats_enabled=True/g",
+                 "/etc/nova/nova.conf"],
+                stderr=PIPE, stdout=PIPE)
+            service_start_output = call(["service", "nova-fairness", "start"],
+                                        stderr=PIPE, stdout=PIPE)
 
-        sed_interval_output = call(["sed", "-i", "s/rui_collection_interval=.*/rui_collection_interval=" +
-                                    str(interval) + "/g", "/etc/nova/nova.conf"], stderr=PIPE, stdout=PIPE)
-        sed_timingstats_output = call(["sed", "-i", "s/timing_stats_enabled=.*/timing_stats_enabled=True/g",
-                                       "/etc/nova/nova.conf"], stderr=PIPE, stdout=PIPE)
-        service_start_output = call(["service", "nova-fairness", "start"], stderr=PIPE, stdout=PIPE)
-
-        print "START RUNTIME EXPERIMENT WITH INTERVAL " + str(interval) + " SECONDS"
-        if load:
-            for instance_name, instance in instances.iteritems():
-                stress_output = Popen(["ssh", "-l", "ubuntu", instance['ip'],
-                                       "stress", "--cpu", "2", "-t", str(experiment_duration)],
-                                      stderr=PIPE, stdout=PIPE)
-            load_state = ""
-        else:
-            load_state = "OUT"
-        print "-- RUNNING " + str(experiment_duration) + " SECONDS WITH" + load_state + " LOAD"
-        time.sleep(experiment_duration)
-        service_stop_output = call(["service", "nova-fairness", "stop"], stderr=PIPE, stdout=PIPE)
+            print "-- RUNTIME EXPERIMENT WITH INTERVAL " + str(interval) +\
+                  " SECONDS"
+            if load:
+                for instance_name, instance in instances.iteritems():
+                    if instance['running']:
+                        stress_output = Popen(["ssh", "-l", "ubuntu",
+                                               instance['ip'], "stress",
+                                               "--cpu", "2", "-t",
+                                               str(experiment_duration)],
+                                              stderr=PIPE, stdout=PIPE)
+                load_state = ""
+            else:
+                load_state = "OUT"
+            print "-- RUNNING " + str(experiment_duration) + " SECONDS WITH" +\
+                  load_state + " LOAD"
+            time.sleep(experiment_duration)
+            service_stop_output = call(["service", "nova-fairness", "stop"],
+                                       stderr=PIPE, stdout=PIPE)
 
 if __name__ == '__main__':
     sys.exit(main())
