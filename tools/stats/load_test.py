@@ -80,9 +80,6 @@ def main():
     for domain in domains:
         instances[domain.name()] = dict()
         instances[domain.name()]['name'] = domain.name()
-        pid = check_output(['cat', '/var/run/libvirt/qemu/' + domain.name() +
-                            '.pid'])
-        instances[domain.name()]['pid'] = pid
         ip = _find_domain_ip(domain)
         instances[domain.name()]['ip'] = ip
         instances[domain.name()]['running'] = False
@@ -128,6 +125,9 @@ def main():
         # start domain
         domain.create()
         active_instances += 1
+        pid = check_output(['cat', '/var/run/libvirt/qemu/' + domain.name() +
+                            '.pid'])
+        instances[domain.name()]['pid'] = pid
         instances[domain.name()]['running'] = True
         time.sleep(30)
         print "START EXPERIMENT WITH " + str(active_instances) + " VMs"

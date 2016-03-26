@@ -395,7 +395,7 @@ class FairnessManager(manager.Manager):
                 for instance in instances:
                     self._timing_stats.start_timing("rui", instance['name'])
                     domain = self.driver._lookup_by_name(instance['name'])
-                    if not domain.isActive:
+                    if not domain.isActive():
                         self._rui_collection_helper.remove_inactive_instance(
                             instance['name'])
                     else:
