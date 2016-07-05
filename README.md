@@ -34,4 +34,4 @@ python novafairness/tools/install_venv.py
 ```
 
 To use the *virtualenv* in PyCharm, go to PyCharm -> Preferences -> Project -> Project Interpreter
-and click on the cog. Choose "Add Local" and navigate to *novafairness/.venv/bin/python_2.7*.
+and click on the cog. Choose "Add Local" and navigate to *novafairness/.venv/bin/python2.7*.
