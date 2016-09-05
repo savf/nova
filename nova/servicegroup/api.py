@@ -128,9 +128,6 @@ class API(object):
         """Returns ALL members of the given group."""
         LOG.debug('Returns ALL members of the [%s] '
                   'ServiceGroup', group_id)
-        if group_id == "fairness":
-            CONF.import_opt('host', 'nova.netconf')
-            return [unicode(CONF.host)]
         return self._driver.get_all(group_id)
 
     def get_one(self, group_id):
